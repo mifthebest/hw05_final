@@ -131,33 +131,19 @@ class CommentFormTests(TestCase):
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
-    def test_creating_comment_by_form(self):
-        """Форма корректно создаёт новый комментарий в БД."""
-        comments_count = Comment.objects.count()
-        post = Post.objects.create(
+        self.post = Post.objects.create(
             text='Post for testing CommentForm',
             author=self.user,
         )
 
-        form_data = {
-            'text': 'New testing comment',
-        }
-        self.guest_client.post(
-            reverse('posts:add_comment', kwargs={'post_id': post.pk}),
-            data=form_data,
-            follow=True
-        )
-        self.assertEqual(
-            comments_count,
-            Comment.objects.count(),
-            'Комментарий может оставлять неавторизованный пользователь'
-        )
-
+    def test_creating_comment_by_authorized_client(self):
+        """Авторизованный пользователь может оставлять комментарии"""
+        comments_count = Comment.objects.count()
         form_data = {
             'text': 'Testing comment',
         }
         self.authorized_client.post(
-            reverse('posts:add_comment', kwargs={'post_id': post.pk}),
+            reverse('posts:add_comment', kwargs={'post_id': self.post.pk}),
             data=form_data,
             follow=True
         )
@@ -181,6 +167,23 @@ class CommentFormTests(TestCase):
         )
         self.assertEqual(
             new_comment.post,
-            post,
+            self.post,
             'При создании комментария поле post не соответсвует ожидаемому'
+        )
+
+    def test_creating_comment_by_guest_client(self):
+        """Неавторизованный пользователь не может оставлять комментарии"""
+        comments_count = Comment.objects.count()
+        form_data = {
+            'text': 'New testing comment',
+        }
+        self.guest_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.pk}),
+            data=form_data,
+            follow=True
+        )
+        self.assertEqual(
+            comments_count,
+            Comment.objects.count(),
+            'Комментарий может оставлять неавторизованный пользователь'
         )

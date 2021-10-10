@@ -43,16 +43,13 @@ def profile(request, username):
     page_obj = paginator.get_page(page_number)
     if request.user.is_authenticated:
         following = request.user.follower.filter(author=author).exists()
-        context = {
-            'author': author,
-            'page_obj': page_obj,
-            'following': following,
-        }
     else:
-        context = {
-            'author': author,
-            'page_obj': page_obj,
-        }
+        following = False
+    context = {
+        'author': author,
+        'page_obj': page_obj,
+        'following': following,
+    }
     return render(request, 'posts/profile.html', context)
 
 
@@ -70,18 +67,16 @@ def post_detail(request, post_id):
 
 @login_required
 def post_create(request):
-    form = PostForm()
-    if request.method == 'POST':
-        form = PostForm(
-            request.POST or None,
-            files=request.FILES or None,
-        )
-        if form.is_valid():
-            instance = form.save(commit=False)
-            instance.author = request.user
-            form.save()
-            url = reverse('posts:profile', args=[request.user.username])
-            return redirect(url)
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None,
+    )
+    if form.is_valid():
+        instance = form.save(commit=False)
+        instance.author = request.user
+        form.save()
+        url = reverse('posts:profile', args=[request.user.username])
+        return redirect(url)
     return render(request, 'posts/post_create.html', {'form': form})
 
 
@@ -121,9 +116,8 @@ def add_comment(request, post_id):
 
 @login_required
 def follow_index(request):
-    followings = request.user.follower.all()
     post_list = Post.objects.filter(
-        author__in=[following.author for following in followings],
+        author__following__user=request.user
     )
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')

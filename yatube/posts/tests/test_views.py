@@ -115,16 +115,16 @@ class PostPagesTests(TestCase):
         Post.objects.bulk_create(posts)
         slug = self.group.slug
         username = self.user.username
-        templates_url_names = {
-            reverse('posts:index'): 'posts/index.html',
+        templates_names = [
+            reverse('posts:index'),
             reverse(
                 'posts:group_list', kwargs={'slug': slug}
-            ): 'posts/group_list.html',
+            ),
             reverse(
                 'posts:profile', kwargs={'username': username}
-            ): 'posts/profile.html',
-        }
-        for address, template in templates_url_names.items():
+            ),
+        ]
+        for address in templates_names:
             with self.subTest(adress=address):
                 response = self.authorized_client.get(address)
                 self.assertEqual(len(response.context['page_obj']), 10)
@@ -218,53 +218,61 @@ class PostPagesTests(TestCase):
         )
 
     def test_authorized_client_can_follow(self):
-        """Авторизованный пользователь может подписываться
-        и отписываться от авторов"""
-        response = self.authorized_client.get(
-            reverse('posts:profile',
-                    kwargs={'username': self.author_user.username})
-        )
-        self.assertFalse(response.context['following'])
-
+        """Авторизованный пользователь может подписываться на авторов"""
         self.authorized_client.get(
             reverse(
                 'posts:profile_follow',
                 kwargs={'username': self.author_user.username}
             )
         )
-        response = self.authorized_client.get(
-            reverse('posts:profile',
-                    kwargs={'username': self.author_user.username})
+        follow = Follow.objects.last()
+        self.assertEqual(
+            follow.user,
+            self.user
         )
-        self.assertTrue(response.context['following'])
+        self.assertEqual(
+            follow.author,
+            self.author_user
+        )
 
+    def test_authorized_client_can_unfollow(self):
+        """Авторизованный пользователь может отписываться от авторов"""
+        Follow.objects.create(user=self.user, author=self.author_user)
+        follow_count = Follow.objects.all().count()
         self.authorized_client.get(
             reverse(
                 'posts:profile_unfollow',
                 kwargs={'username': self.author_user.username}
             )
         )
-        response = self.authorized_client.get(
-            reverse('posts:profile',
-                    kwargs={'username': self.author_user.username})
+        self.assertEqual(
+            Follow.objects.all().count(),
+            follow_count - 1
         )
-        self.assertFalse(response.context['following'])
 
-    def test_correct_show_new_post_in_follows(self):
-        """Созданный пользователем пост отображается только в ленте тех,
+    def test_correct_show_follows_to_follow_user(self):
+        """Созданный пользователем пост отображается в ленте тех,
         кто на него подписан"""
         Follow.objects.create(user=self.user, author=self.author_user)
-        unfollower_user = User.objects.create(username='UnfollowUser')
-        unfollower_client = Client()
-        unfollower_client.force_login(unfollower_user)
         Post.objects.create(
-            text='Post for testing following',
+            text='Post for testing following (follow user)',
             author=self.author_user
         )
         response = self.authorized_client.get(reverse('posts:follow_index'))
         self.assertEqual(
             len(response.context['page_obj']),
             1,
+        )
+
+    def test_correct_show_follows_to_unfollow_user(self):
+        """Созданный пользователем не пост отображается в ленте тех,
+        кто на него не подписан"""
+        unfollower_user = User.objects.create(username='UnfollowUser')
+        unfollower_client = Client()
+        unfollower_client.force_login(unfollower_user)
+        Post.objects.create(
+            text='Post for testing following (unfollow user)',
+            author=self.author_user
         )
         response = unfollower_client.get(reverse('posts:follow_index'))
         self.assertEqual(
@@ -283,11 +291,17 @@ class CacheTests(TestCase):
             text='Post for testing cache',
             author=User.objects.create_user(username='SomeName'),
         )
-        response = (self.guest_client.get(reverse('posts:index')))
+        response = self.guest_client.get(reverse('posts:index'))
         response_content = response.content
         post.delete()
-        response = (self.guest_client.get(reverse('posts:index')))
+        response = self.guest_client.get(reverse('posts:index'))
         self.assertEqual(
+            response_content,
+            response.content
+        )
+        cache.clear()
+        response = self.guest_client.get(reverse('posts:index'))
+        self.assertNotEqual(
             response_content,
             response.content
         )
