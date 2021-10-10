@@ -1,0 +1,21 @@
+{# Это код файла templates/users/includes/done.html #}
+{% extends "base.html" %}
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-8 p-5">
+      <div class="card">
+        <div class="card-header">
+          {% block form_title %}
+          {% endblock %}
+        </div>
+        <div class="card-body">
+          <p>
+            {% block message %}
+              Вы вышли из своей учётной записи. Ждём вас снова!
+            {% endblock %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
