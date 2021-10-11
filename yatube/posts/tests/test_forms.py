@@ -72,10 +72,9 @@ class PostFormTests(TestCase):
             self.user,
             'При создании поста поле author не соответсвует ожидаемому'
         )
-        self.assertTrue(
-            Post.objects.filter(
-                image='posts/small.gif'
-            ).exists(),
+        self.assertEqual(
+            str(new_post.image),
+            'posts/small.gif',
             'При создании поста поле image не соответсвует ожидаемому'
         )
 
@@ -115,10 +114,9 @@ class PostFormTests(TestCase):
             self.user,
             'При обновлении поста поле author не соответсвует ожидаемому'
         )
-        self.assertTrue(
-            Post.objects.filter(
-                image='posts/second_small.gif'
-            ).exists(),
+        self.assertEqual(
+            str(updating_post.image),
+            'posts/second_small.gif',
             'При обновлении поста поле image не соответсвует ожидаемому'
         )
 

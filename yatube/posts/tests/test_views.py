@@ -108,10 +108,10 @@ class PostPagesTests(TestCase):
 
     def test_pages_paginator(self):
         """Паджинатор отображается верно."""
-        posts = list(
+        posts = [
             Post(text=f'{i}', author=self.user, group=self.group)
             for i in range(13)
-        )
+        ]
         Post.objects.bulk_create(posts)
         slug = self.group.slug
         username = self.user.username
@@ -134,22 +134,22 @@ class PostPagesTests(TestCase):
 
     def test_post_index_page_show_correct_context(self):
         """Шаблон index сформирован с правильным контекстом."""
-        response = (self.authorized_client.get(reverse('posts:index')))
+        response = self.authorized_client.get(reverse('posts:index'))
         self.is_post_exist(response.context['page_obj'][0])
 
     def test_post_group_list_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
-        response = (self.authorized_client.get(
+        response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': self.group.slug})
-        ))
+        )
         self.is_post_exist(response.context['page_obj'][0])
         self.assertEqual(self.group, response.context['group'])
 
     def test_post_profile_show_correct_context(self):
         """Шаблон profile сформирован с правильным контекстом."""
-        response = (self.authorized_client.get(
+        response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': self.user.username})
-        ))
+        )
         self.is_post_exist(response.context['page_obj'][0])
         self.assertEqual(self.user, response.context['author'])
 
@@ -160,9 +160,9 @@ class PostPagesTests(TestCase):
             author=self.user,
             post=self.post,
         )
-        response = (self.authorized_client.get(
+        response = self.authorized_client.get(
             reverse('posts:post_detail', kwargs={'post_id': self.post.pk})
-        ))
+        )
         comment = response.context['comments'].last()
         self.assertEqual(new_comment.text, comment.text)
         self.assertEqual(new_comment.author, comment.author)
@@ -219,6 +219,7 @@ class PostPagesTests(TestCase):
 
     def test_authorized_client_can_follow(self):
         """Авторизованный пользователь может подписываться на авторов"""
+        follow_count = Follow.objects.count()
         self.authorized_client.get(
             reverse(
                 'posts:profile_follow',
@@ -234,11 +235,15 @@ class PostPagesTests(TestCase):
             follow.author,
             self.author_user
         )
+        self.assertEqual(
+            follow_count + 1,
+            Follow.objects.count()
+        )
 
     def test_authorized_client_can_unfollow(self):
         """Авторизованный пользователь может отписываться от авторов"""
         Follow.objects.create(user=self.user, author=self.author_user)
-        follow_count = Follow.objects.all().count()
+        follow_count = Follow.objects.count()
         self.authorized_client.get(
             reverse(
                 'posts:profile_unfollow',
@@ -246,7 +251,7 @@ class PostPagesTests(TestCase):
             )
         )
         self.assertEqual(
-            Follow.objects.all().count(),
+            Follow.objects.count(),
             follow_count - 1
         )
 
@@ -254,13 +259,22 @@ class PostPagesTests(TestCase):
         """Созданный пользователем пост отображается в ленте тех,
         кто на него подписан"""
         Follow.objects.create(user=self.user, author=self.author_user)
-        Post.objects.create(
-            text='Post for testing following (follow user)',
+        post = Post.objects.create(
+            text='Post for testing following',
             author=self.author_user
         )
         response = self.authorized_client.get(reverse('posts:follow_index'))
+        page_obj = response.context['page_obj']
         self.assertEqual(
-            len(response.context['page_obj']),
+            page_obj[0].text,
+            post.text
+        )
+        self.assertEqual(
+            page_obj[0].author,
+            post.author
+        )
+        self.assertEqual(
+            len(page_obj),
             1,
         )
 
@@ -270,10 +284,6 @@ class PostPagesTests(TestCase):
         unfollower_user = User.objects.create(username='UnfollowUser')
         unfollower_client = Client()
         unfollower_client.force_login(unfollower_user)
-        Post.objects.create(
-            text='Post for testing following (unfollow user)',
-            author=self.author_user
-        )
         response = unfollower_client.get(reverse('posts:follow_index'))
         self.assertEqual(
             len(response.context['page_obj']),
